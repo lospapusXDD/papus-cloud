@@ -626,7 +626,6 @@ function fallbackSeasonsAndEpisodes() {
 
 function getEmbedUrl(imdbId, type, season = 1, episode = 1, server = 1) {
   const isSeries = type === 'series' || type === 'tvSeries';
-  const langParam = (currentLanguage === 'latino' || currentLanguage === 'castellano') ? '&ds_lang=es' : '';
 
   switch (server) {
     case 1:
@@ -635,26 +634,26 @@ function getEmbedUrl(imdbId, type, season = 1, episode = 1, server = 1) {
         ? `https://multiembed.mov/?video_id=${imdbId}&s=${season}&e=${episode}`
         : `https://multiembed.mov/?video_id=${imdbId}`;
     case 2:
-      // VidLink: Reproductor interactivo con selector de audio (Español Latino) y subtítulos
+      // VidSrc TO: Servidor con streaming rápido y pistas multi-idioma (reemplaza vidlink con 500 error)
       return isSeries
-        ? `https://vidlink.pro/tv/${imdbId}/${season}/${episode}?primaryColor=E50914`
-        : `https://vidlink.pro/movie/${imdbId}?primaryColor=E50914`;
+        ? `https://vidsrc.to/embed/tv/${imdbId}/${season}/${episode}`
+        : `https://vidsrc.to/embed/movie/${imdbId}`;
     case 3:
-      // Embed.su: Servidor ultra rápido con pistas de audio multi-idioma
+      // VidSrc SH: Servidor ultra rápido y estable
       return isSeries
-        ? `https://embed.su/embed/tv/${imdbId}/${season}/${episode}`
-        : `https://embed.su/embed/movie/${imdbId}`;
+        ? `https://vidsrc.sh/embed/tv?imdb=${imdbId}&season=${season}&episode=${episode}`
+        : `https://vidsrc.sh/embed/movie?imdb=${imdbId}`;
     case 4:
-      // VidSrc CC: Servidor con pistas de doblaje y subtítulos
+      // AutoEmbed CO: Servidor con reproductor de alta disponibilidad
       return isSeries
-        ? `https://vidsrc.cc/v2/embed/tv/${imdbId}/${season}/${episode}`
-        : `https://vidsrc.cc/v2/embed/movie/${imdbId}`;
+        ? `https://autoembed.co/tv/imdb/${imdbId}-${season}-${episode}`
+        : `https://autoembed.co/movie/imdb/${imdbId}`;
     case 5:
     default:
-      // AutoEmbed: Servidor alternativo
+      // 2Embed: Servidor alternativo
       return isSeries
-        ? `https://player.autoembed.cc/embed/tv/${imdbId}/${season}/${episode}`
-        : `https://player.autoembed.cc/embed/movie/${imdbId}`;
+        ? `https://www.2embed.cc/embedtv/${imdbId}&s=${season}&e=${episode}`
+        : `https://www.2embed.cc/embed/${imdbId}`;
   }
 }
 
