@@ -120,17 +120,17 @@
                 <div class="server-buttons" id="serverButtons">
                   <button class="btn-server active" onclick="switchServer(1)">Servidor 1 (Latino HD)</button>
                   <button class="btn-server" onclick="switchServer(2)">Servidor 2 (VidLink ES)</button>
-                  <button class="btn-server" onclick="switchServer(3)">Servidor 3 (VidSrc CC)</button>
-                  <button class="btn-server" onclick="switchServer(4)">Servidor 4 (AutoEmbed)</button>
-                  <button class="btn-server" onclick="switchServer(5)">Servidor 5 (VidSrc XYZ)</button>
+                  <button class="btn-server" onclick="switchServer(3)">Servidor 3 (Embed.su Multi)</button>
+                  <button class="btn-server" onclick="switchServer(4)">Servidor 4 (VidSrc CC)</button>
+                  <button class="btn-server" onclick="switchServer(5)">Servidor 5 (AutoEmbed)</button>
                 </div>
               </div>
             </div>
 
             <!-- AVISO DE AUDIO EN ESPAÑOL -->
             <div class="audio-hint-bar" id="audioHintBar">
-              <svg class="icon-svg" style="width:16px; height:16px; color:#38bdf8;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-              <span><strong>Audio en Español Latino:</strong> Priorizado en Servidor 1 (Latino HD) y Servidor 2 (VidLink). Si el video arranca en inglés o japonés, pulsa el botón de <strong>Audio / Pista (🔈)</strong> o <strong>Ajustes (⚙️)</strong> dentro del reproductor para cambiar a <strong>Español Latino</strong> o activar subtítulos.</span>
+              <svg class="icon-svg" style="width:18px; height:18px; color:#22c55e; flex-shrink: 0;" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+              <span><strong>¿Cómo ponerlo en Español Latino?</strong> En anime y series el video inicia por defecto en audio original. Para escucharlo doblado al <strong>Español Latino</strong>: en <strong>Servidor 1</strong>, pulsa sobre las pestañas de servidores en la parte superior del reproductor (ej. Server 2 o VIP). En <strong>Servidor 2 (VidLink)</strong>, haz clic en el engranaje ⚙️ o el ícono 🔈 en la barra inferior del video y selecciona <em>Español (Latino)</em>. También puedes activar subtítulos en español (CC).</span>
             </div>
 
             <!-- CONTROLES DE SERIE (TEMPORADA Y CAPÍTULO) -->
@@ -139,15 +139,6 @@
                 <label for="seasonSelect">Temporada:</label>
                 <select id="seasonSelect" onchange="onSeasonChange(this.value)">
                   <option value="1">Temporada 1</option>
-                  <option value="2">Temporada 2</option>
-                  <option value="3">Temporada 3</option>
-                  <option value="4">Temporada 4</option>
-                  <option value="5">Temporada 5</option>
-                  <option value="6">Temporada 6</option>
-                  <option value="7">Temporada 7</option>
-                  <option value="8">Temporada 8</option>
-                  <option value="9">Temporada 9</option>
-                  <option value="10">Temporada 10</option>
                 </select>
               </div>
 

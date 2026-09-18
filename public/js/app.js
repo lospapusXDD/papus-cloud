@@ -513,15 +513,6 @@ function initEpisodeDropdown(season, totalEpisodes = 50) {
   }
 }
 
-function prevEpisode() {
-  if (currentEpisode > 1) {
-    currentEpisode -= 1;
-    const epSelect = document.getElementById('episodeSelect');
-    if (epSelect) epSelect.value = String(currentEpisode);
-    reloadPlayer();
-  }
-}
-
 let currentLanguage = 'latino'; // 'latino' | 'castellano' | 'sub'
 
 function switchLanguage(lang) {
@@ -550,37 +541,120 @@ function switchLanguage(lang) {
   }
 }
 
+let currentSeriesVideos = []; // Almacena todos los episodios reales de la serie actual
+
+async function loadSeriesMetadata(imdbId) {
+  const seasonSelect = document.getElementById('seasonSelect');
+  const episodeSelect = document.getElementById('episodeSelect');
+  if (!seasonSelect || !episodeSelect) return;
+
+  seasonSelect.innerHTML = '<option value="1">Cargando temporadas...</option>';
+  episodeSelect.innerHTML = '<option value="1">Cargando episodios...</option>';
+
+  try {
+    const res = await fetch(`https://v3-cinemeta.strem.io/meta/series/${imdbId}.json`);
+    if (!res.ok) throw new Error('Error al cargar temporadas');
+    const data = await res.json();
+    const videos = data.meta?.videos || [];
+
+    // Filtrar episodios válidos de temporadas (season > 0)
+    currentSeriesVideos = videos.filter(v => v.season && v.season > 0);
+
+    if (currentSeriesVideos.length === 0) {
+      fallbackSeasonsAndEpisodes();
+      return;
+    }
+
+    // Obtener temporadas únicas reales ordenadas (ej. 1, 2, 3)
+    const seasons = Array.from(new Set(currentSeriesVideos.map(v => v.season))).sort((a, b) => a - b);
+
+    seasonSelect.innerHTML = seasons.map(s => `
+      <option value="${s}" ${s === currentSeason ? 'selected' : ''}>Temporada ${s}</option>
+    `).join('');
+
+    if (!seasons.includes(currentSeason)) {
+      currentSeason = seasons[0] || 1;
+      seasonSelect.value = String(currentSeason);
+    }
+
+    // Poblar episodios reales con sus títulos para la temporada seleccionada
+    updateEpisodesForSeason(currentSeason);
+
+  } catch (err) {
+    console.warn('Error cargando metadata de la serie:', err);
+    fallbackSeasonsAndEpisodes();
+  }
+}
+
+function updateEpisodesForSeason(seasonNum) {
+  const episodeSelect = document.getElementById('episodeSelect');
+  if (!episodeSelect) return;
+
+  const seasonEps = currentSeriesVideos
+    .filter(v => v.season === seasonNum)
+    .sort((a, b) => (a.number || a.episode) - (b.number || b.episode));
+
+  if (seasonEps.length === 0) {
+    initEpisodeDropdown(seasonNum, 24);
+    return;
+  }
+
+  episodeSelect.innerHTML = seasonEps.map(v => {
+    const num = v.number || v.episode;
+    const epTitle = (v.name || v.title) ? ` — ${v.name || v.title}` : '';
+    return `<option value="${num}" ${num === currentEpisode ? 'selected' : ''}>Episodio ${num}${escapeHtml(epTitle)}</option>`;
+  }).join('');
+
+  const hasCurrent = seasonEps.some(v => (v.number || v.episode) === currentEpisode);
+  if (!hasCurrent && seasonEps.length > 0) {
+    currentEpisode = seasonEps[0].number || seasonEps[0].episode || 1;
+    episodeSelect.value = String(currentEpisode);
+  }
+}
+
+function fallbackSeasonsAndEpisodes() {
+  const seasonSelect = document.getElementById('seasonSelect');
+  if (seasonSelect) {
+    seasonSelect.innerHTML = `
+      <option value="1" selected>Temporada 1</option>
+      <option value="2">Temporada 2</option>
+      <option value="3">Temporada 3</option>
+    `;
+  }
+  initEpisodeDropdown(1, 24);
+}
+
 function getEmbedUrl(imdbId, type, season = 1, episode = 1, server = 1) {
   const isSeries = type === 'series' || type === 'tvSeries';
   const langParam = (currentLanguage === 'latino' || currentLanguage === 'castellano') ? '&ds_lang=es' : '';
 
   switch (server) {
     case 1:
-      // MultiEmbed: Servidor líder con selección de fuentes en Español Latino y Castellano
+      // MultiEmbed: Servidor líder con pestañas internas para Español Latino y Castellano
       return isSeries
         ? `https://multiembed.mov/?video_id=${imdbId}&s=${season}&e=${episode}`
         : `https://multiembed.mov/?video_id=${imdbId}`;
     case 2:
-      // VidLink: Reproductor moderno con selector de audio y subtítulos en español
+      // VidLink: Reproductor interactivo con selector de audio (Español Latino) y subtítulos
       return isSeries
         ? `https://vidlink.pro/tv/${imdbId}/${season}/${episode}?primaryColor=E50914`
         : `https://vidlink.pro/movie/${imdbId}?primaryColor=E50914`;
     case 3:
-      // VidSrc CC: Servidor estable multilenguaje
+      // Embed.su: Servidor ultra rápido con pistas de audio multi-idioma
+      return isSeries
+        ? `https://embed.su/embed/tv/${imdbId}/${season}/${episode}`
+        : `https://embed.su/embed/movie/${imdbId}`;
+    case 4:
+      // VidSrc CC: Servidor con pistas de doblaje y subtítulos
       return isSeries
         ? `https://vidsrc.cc/v2/embed/tv/${imdbId}/${season}/${episode}`
         : `https://vidsrc.cc/v2/embed/movie/${imdbId}`;
-    case 4:
-      // AutoEmbed: Servidor rápido multi-idioma
+    case 5:
+    default:
+      // AutoEmbed: Servidor alternativo
       return isSeries
         ? `https://player.autoembed.cc/embed/tv/${imdbId}/${season}/${episode}`
         : `https://player.autoembed.cc/embed/movie/${imdbId}`;
-    case 5:
-    default:
-      // VidSrc XYZ con parámetro de idioma
-      return isSeries
-        ? `https://vidsrc.xyz/embed/tv?imdb=${imdbId}&season=${season}&episode=${episode}${langParam}`
-        : `https://vidsrc.xyz/embed/movie?imdb=${imdbId}${langParam}`;
   }
 }
 
@@ -594,8 +668,6 @@ function selectMovie(movie, scroll = true) {
   const embedPlayer = document.getElementById('cineEmbedPlayer');
   const localPlayer = document.getElementById('cineLocalPlayer');
   const tvControls = document.getElementById('tvSeriesControls');
-  const seasonSelect = document.getElementById('seasonSelect');
-  const episodeSelect = document.getElementById('episodeSelect');
 
   nowPlayingTitle.textContent = movie.title + (movie.year ? ` (${movie.year})` : '');
   nowPlayingDesc.textContent = movie.desc || (movie.genre ? `${movie.genre} — Streaming en alta calidad` : 'Reproduciendo en CinePapus');
@@ -604,10 +676,11 @@ function selectMovie(movie, scroll = true) {
 
   if (isSeries) {
     tvControls.classList.remove('hidden');
-    if (seasonSelect) seasonSelect.value = "1";
-    if (episodeSelect) episodeSelect.value = "1";
+    // Cargar temporadas y episodios REALES desde el catálogo mundial
+    loadSeriesMetadata(movie.imdbId);
   } else {
     tvControls.classList.add('hidden');
+    currentSeriesVideos = [];
   }
 
   // Si es un archivo local del disco D:
@@ -666,6 +739,11 @@ function switchServer(serverNum) {
 function onSeasonChange(seasonVal) {
   currentSeason = parseInt(seasonVal, 10) || 1;
   currentEpisode = 1;
+  if (currentSeriesVideos && currentSeriesVideos.length > 0) {
+    updateEpisodesForSeason(currentSeason);
+  } else {
+    initEpisodeDropdown(currentSeason, 24);
+  }
   const epSelect = document.getElementById('episodeSelect');
   if (epSelect) epSelect.value = "1";
   reloadPlayer();
@@ -677,10 +755,36 @@ function onEpisodeChange(episodeVal) {
 }
 
 function nextEpisode() {
-  currentEpisode += 1;
-  const epSelect = document.getElementById('episodeSelect');
-  if (epSelect) epSelect.value = String(currentEpisode);
-  reloadPlayer();
+  const seasonEps = currentSeriesVideos.filter(v => v.season === currentSeason);
+  const maxEp = seasonEps.length > 0 
+    ? Math.max(...seasonEps.map(v => v.number || v.episode)) 
+    : 24;
+
+  if (currentEpisode < maxEp) {
+    currentEpisode += 1;
+    const epSelect = document.getElementById('episodeSelect');
+    if (epSelect) epSelect.value = String(currentEpisode);
+    reloadPlayer();
+  } else {
+    // Si terminó la temporada, verificar si hay siguiente temporada
+    const seasons = Array.from(new Set(currentSeriesVideos.map(v => v.season))).sort((a, b) => a - b);
+    const nextSeasonIdx = seasons.indexOf(currentSeason) + 1;
+    if (nextSeasonIdx < seasons.length) {
+      currentSeason = seasons[nextSeasonIdx];
+      const seasonSelect = document.getElementById('seasonSelect');
+      if (seasonSelect) seasonSelect.value = String(currentSeason);
+      onSeasonChange(currentSeason);
+    }
+  }
+}
+
+function prevEpisode() {
+  if (currentEpisode > 1) {
+    currentEpisode -= 1;
+    const epSelect = document.getElementById('episodeSelect');
+    if (epSelect) epSelect.value = String(currentEpisode);
+    reloadPlayer();
+  }
 }
 
 function reloadPlayer() {
