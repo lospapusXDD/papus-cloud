@@ -81,7 +81,7 @@
               <form class="search-form" onsubmit="handleCineSearch(event)">
                 <div class="search-bar-inner">
                   <svg class="icon-svg search-icon-svg" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                  <input type="text" id="cineSearchInput" placeholder="Escribe el nombre: Breaking Bad, Spider-Man, Deadpool, Interestelar, Batman..." autocomplete="off">
+                  <input type="text" id="cineSearchInput" placeholder="Busca anime, series o películas: Mushoku Tensei, Re:Zero, Kimetsu, Breaking Bad..." autocomplete="off">
                   <button type="submit" class="btn btn-netflix">
                     <svg class="icon-svg" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                     Buscar
@@ -119,10 +119,10 @@
                 <span class="server-label">Servidor:</span>
                 <div class="server-buttons" id="serverButtons">
                   <button class="btn-server active" onclick="switchServer(1)">Servidor 1 (Latino HD)</button>
-                  <button class="btn-server" onclick="switchServer(2)">Servidor 2 (VidSrc ES)</button>
-                  <button class="btn-server" onclick="switchServer(3)">Servidor 3 (AutoEmbed)</button>
-                  <button class="btn-server" onclick="switchServer(4)">Servidor 4 (VidLink)</button>
-                  <button class="btn-server" onclick="switchServer(5)">Servidor 5 (2Embed)</button>
+                  <button class="btn-server" onclick="switchServer(2)">Servidor 2 (VidLink ES)</button>
+                  <button class="btn-server" onclick="switchServer(3)">Servidor 3 (VidSrc CC)</button>
+                  <button class="btn-server" onclick="switchServer(4)">Servidor 4 (AutoEmbed)</button>
+                  <button class="btn-server" onclick="switchServer(5)">Servidor 5 (VidSrc XYZ)</button>
                 </div>
               </div>
             </div>
@@ -130,7 +130,7 @@
             <!-- AVISO DE AUDIO EN ESPAÑOL -->
             <div class="audio-hint-bar" id="audioHintBar">
               <svg class="icon-svg" style="width:16px; height:16px; color:#38bdf8;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-              <span><strong>Audio en Español:</strong> La mayoría de títulos incluyen doblaje al Español Latino. Si una película inicia en inglés, haz clic en el ícono de <strong>Audio/Pista (🔈)</strong> o <strong>Ajustes (⚙️)</strong> en la barra inferior del reproductor para seleccionar Español.</span>
+              <span><strong>Audio en Español Latino:</strong> Priorizado en Servidor 1 (Latino HD) y Servidor 2 (VidLink). Si el video arranca en inglés o japonés, pulsa el botón de <strong>Audio / Pista (🔈)</strong> o <strong>Ajustes (⚙️)</strong> dentro del reproductor para cambiar a <strong>Español Latino</strong> o activar subtítulos.</span>
             </div>
 
             <!-- CONTROLES DE SERIE (TEMPORADA Y CAPÍTULO) -->
@@ -158,8 +158,12 @@
                 </select>
               </div>
 
-              <button class="btn btn-secondary btn-sm" onclick="nextEpisode()">
-                Capítulo Siguiente
+              <button class="btn btn-secondary btn-sm" onclick="prevEpisode()" title="Capítulo Anterior">
+                <svg class="icon-svg" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                Anterior
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="nextEpisode()" title="Capítulo Siguiente">
+                Siguiente
                 <svg class="icon-svg" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
               </button>
             </div>

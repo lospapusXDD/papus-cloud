@@ -17,6 +17,50 @@ let isBackendConnected = false;
 // Catálogo curado de recomendaciones estilo Netflix con IDs reales de IMDB
 const DEFAULT_RECOMMENDATIONS = [
   {
+    id: "rec_mushoku",
+    imdbId: "tt13293588",
+    title: "Mushoku Tensei: Jobless Reincarnation",
+    year: 2021,
+    type: "series",
+    rating: 8.4,
+    genre: "Anime / Fantasía / Isekai",
+    poster: "https://m.media-amazon.com/images/M/MV5BYWQwNjk3MDItNDAxMS00YTQ2LWEyNDctMGYyZTE5OGQxNGQ1XkEyXkFqcGc@._V1_SX250.jpg",
+    desc: "Un hombre reencarna en un mundo mágico como Rudeus Greyrat, decidido a vivir su nueva vida al máximo y dominar la magia."
+  },
+  {
+    id: "rec_rezero",
+    imdbId: "tt5607616",
+    title: "Re: Zero - Starting Life in Another World",
+    year: 2016,
+    type: "series",
+    rating: 8.2,
+    genre: "Anime / Drama / Fantasía",
+    poster: "https://m.media-amazon.com/images/M/MV5BNDlmM2M2ZTgtN2RkYi00Nzk1LThkNTQtNzBjMGVjNWIwYjM4XkEyXkFqcGc@._V1_SX250.jpg",
+    desc: "Subaru Natsuki es transportado a un mundo desconocido donde descubre que tiene el misterioso poder de regresar de la muerte."
+  },
+  {
+    id: "rec_demonslayer",
+    imdbId: "tt9335498",
+    title: "Demon Slayer: Kimetsu no Yaiba",
+    year: 2019,
+    type: "series",
+    rating: 8.7,
+    genre: "Anime / Acción / Shonen",
+    poster: "https://m.media-amazon.com/images/M/MV5BNmU4M2FjNWQtNmE4My05NzM1LTg5NGEtOTkwMDlhMWIzNGM0XkEyXkFqcGc@._V1_FMjpg_UX1000_.jpg",
+    desc: "Tanjiro Kamado emprende un viaje para vengar a su familia y salvar a su hermana Nezuko, convertida en demonio."
+  },
+  {
+    id: "rec_attackontitan",
+    imdbId: "tt2560140",
+    title: "Attack on Titan (Shingeki no Kyojin)",
+    year: 2013,
+    type: "series",
+    rating: 9.1,
+    genre: "Anime / Acción / Misterio",
+    poster: "https://m.media-amazon.com/images/M/MV5BNTIwMjE2Mjc1MF5BMl5BanBnXkFtZTcwNzQxNDQ3Mw@@._V1_FMjpg_UX1000_.jpg",
+    desc: "Tras la destrucción de su ciudad natal a manos de gigantescos Titanes, Eren Jaeger jura limpiar la faz de la tierra de ellos."
+  },
+  {
     id: "rec_spiderman",
     imdbId: "tt9362722",
     title: "Spider-Man: Across the Spider-Verse",
@@ -110,7 +154,7 @@ const DEFAULT_RECOMMENDATIONS = [
 // INICIALIZACIÓN
 // ------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
-  initEpisodeDropdown(1, 24);
+  initEpisodeDropdown(1, 50);
   initAuth();
   await checkBackendStatus();
   loadStats();
@@ -120,6 +164,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderMyWatchlist();
   setupDragAndDrop();
   setupWebSocket();
+
+  // Búsqueda en vivo al escribir en el buscador de cine
+  const cineInput = document.getElementById('cineSearchInput');
+  if (cineInput) {
+    cineInput.addEventListener('input', (e) => {
+      clearTimeout(searchDebounceTimer);
+      const val = e.target.value.trim();
+      if (val.length >= 2) {
+        searchDebounceTimer = setTimeout(() => handleCineSearch(), 500);
+      }
+    });
+  }
 
   // Autocargar primera recomendación por defecto
   if (DEFAULT_RECOMMENDATIONS.length > 0) {
@@ -322,8 +378,8 @@ let searchDebounceTimer = null;
 
 async function handleCineSearch(e) {
   if (e) e.preventDefault();
-  const query = document.getElementById('cineSearchInput').value.trim();
-  if (!query) return;
+  const rawQuery = document.getElementById('cineSearchInput')?.value?.trim();
+  if (!rawQuery) return;
 
   const resultsSection = document.getElementById('searchResultsSection');
   const resultsGrid = document.getElementById('searchResultsGrid');
@@ -332,71 +388,88 @@ async function handleCineSearch(e) {
   resultsSection.classList.remove('hidden');
   resultsGrid.innerHTML = `
     <div class="empty-state-mini">
-      <p>Buscando títulos en la base de datos mundial de cine...</p>
+      <p>🔍 Buscando "<strong>${escapeHtml(rawQuery)}</strong>" en el catálogo mundial de anime, series y películas...</p>
     </div>
   `;
 
   try {
-    // Normalizar query para endpoint de sugerencias
-    const cleanQuery = query.toLowerCase().replace(/[^a-z0-9]/g, '_');
-    const firstChar = cleanQuery.charAt(0) || 'a';
+    const encoded = encodeURIComponent(rawQuery);
     
-    const url = `https://v3.sg.media-imdb.com/suggestion/x/${encodeURIComponent(cleanQuery)}.json`;
-    const res = await fetch(url);
-    const data = await res.json();
+    // Consulta concurrente a catálogo Cinemeta para series/anime y películas (CORS habilitado 100%)
+    const [seriesFetch, moviesFetch] = await Promise.allSettled([
+      fetch(`https://v3-cinemeta.strem.io/catalog/series/top/search=${encoded}.json`).then(r => r.ok ? r.json() : { metas: [] }),
+      fetch(`https://v3-cinemeta.strem.io/catalog/movie/top/search=${encoded}.json`).then(r => r.ok ? r.json() : { metas: [] })
+    ]);
 
-    if (!data.d || data.d.length === 0) {
-      resultsGrid.innerHTML = `
-        <div class="empty-state-mini">
-          <p>No se encontraron resultados para "<strong>${escapeHtml(query)}</strong>". Intenta con otro nombre o en inglés.</p>
-        </div>
-      `;
-      resultsCount.textContent = "0 encontrados";
-      return;
+    const seriesMetas = (seriesFetch.status === 'fulfilled' && seriesFetch.value?.metas) ? seriesFetch.value.metas : [];
+    const moviesMetas = (moviesFetch.status === 'fulfilled' && moviesFetch.value?.metas) ? moviesFetch.value.metas : [];
+
+    // Priorizar series/anime si la búsqueda contiene palabras clave comunes de anime o si hay coincidencias de serie
+    const qLower = rawQuery.toLowerCase();
+    const isAnimeOrSeries = qLower.includes('tensei') || qLower.includes('zero') || qLower.includes('anime') || 
+                            qLower.includes('shonen') || qLower.includes('kyojin') || qLower.includes('yaiba') || 
+                            qLower.includes('piece') || qLower.includes('ball') || qLower.includes('naruto') ||
+                            qLower.includes('season') || qLower.includes('serie') || seriesMetas.length > 0;
+
+    const combined = isAnimeOrSeries ? [...seriesMetas, ...moviesMetas] : [...moviesMetas, ...seriesMetas];
+
+    // Deduplicar y formatear
+    const seen = new Set();
+    const validTitles = [];
+
+    for (const item of combined) {
+      const id = item.imdb_id || item.id;
+      if (!id || seen.has(id)) continue;
+      // Descartar videos irrelevantes o duplicados técnicos
+      if (item.name?.includes('#DUPE#') || item.name?.toLowerCase().includes('reaction video')) continue;
+      seen.add(id);
+
+      const isSeries = item.type === 'series' || item.type === 'tvSeries';
+      const posterUrl = (item.poster && !item.poster.includes('null')) 
+        ? item.poster 
+        : 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500&auto=format&fit=crop&q=60';
+      const year = item.releaseInfo || item.year || (isSeries ? 'Serie' : 'Película');
+      const isAnime = (Array.isArray(item.genres) && item.genres.some(g => g.toLowerCase().includes('animation') || g.toLowerCase().includes('anime'))) ||
+                      item.name?.toLowerCase().includes('tensei') || item.name?.toLowerCase().includes('zero') ||
+                      item.name?.toLowerCase().includes('yaiba') || item.name?.toLowerCase().includes('kyojin');
+
+      const badgeLabel = isAnime ? 'Anime HD' : (isSeries ? 'Serie TV' : 'Película');
+
+      validTitles.push({
+        id: 'imdb_' + id,
+        imdbId: id,
+        title: item.name,
+        year: year,
+        type: isSeries ? 'series' : 'movie',
+        isAnime: isAnime,
+        badgeLabel: badgeLabel,
+        rating: item.imdbRating || 8.2,
+        genre: Array.isArray(item.genres) && item.genres.length > 0 ? item.genres.join(' / ') : badgeLabel,
+        poster: posterUrl,
+        desc: item.description || `Disponible en streaming con opciones de doblaje al español y subtítulos.`
+      });
     }
-
-    // Filtrar solo películas y series (descartar personas/actores)
-    const validTitles = data.d.filter(item => {
-      const qid = item.qid || item.q;
-      return qid === 'movie' || qid === 'tvSeries' || qid === 'tvMiniSeries' || item.id?.startsWith('tt');
-    });
 
     if (validTitles.length === 0) {
       resultsGrid.innerHTML = `
         <div class="empty-state-mini">
-          <p>No se encontraron películas o series para "${escapeHtml(query)}".</p>
+          <p>No se encontraron resultados para "<strong>${escapeHtml(rawQuery)}</strong>". Intenta escribir el nombre sin signos raros (ej: <em>Mushoku Tensei, Re Zero, Kimetsu no Yaiba, Attack on Titan, Solo Leveling</em>).</p>
         </div>
       `;
       resultsCount.textContent = "0 encontrados";
       return;
     }
 
-    resultsCount.textContent = `${validTitles.length} títulos`;
-    resultsGrid.innerHTML = validTitles.map(item => {
-      const isSeries = item.qid === 'tvSeries' || item.qid === 'tvMiniSeries';
-      const posterUrl = item.i?.imageUrl || 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500&auto=format&fit=crop&q=60';
-      const year = item.y || item.tl || 'Reciente';
-      const stars = item.s || '';
-
-      const movieObj = {
-        id: 'imdb_' + item.id,
-        imdbId: item.id,
-        title: item.l,
-        year: year,
-        type: isSeries ? 'series' : 'movie',
-        rating: 8.0,
-        genre: isSeries ? 'Serie de TV' : 'Película',
-        poster: posterUrl,
-        desc: stars ? `Protagonistas: ${stars}.` : `Título oficial disponible en streaming.`
-      };
-
-      const movieJsonEscaped = JSON.stringify(movieObj).replace(/"/g, '&quot;');
+    resultsCount.textContent = `${validTitles.length} títulos encontrados`;
+    resultsGrid.innerHTML = validTitles.map(movie => {
+      const isSeries = movie.type === 'series';
+      const movieJsonEscaped = JSON.stringify(movie).replace(/"/g, '&quot;');
 
       return `
         <div class="movie-card" onclick="selectMovie(${movieJsonEscaped})">
           <div class="movie-poster-box">
-            <span class="badge-type ${isSeries ? 'series' : ''}">${isSeries ? 'Serie TV' : 'Película'}</span>
-            <img class="movie-poster-img" src="${escapeHtml(posterUrl)}" alt="${escapeHtml(item.l)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500&auto=format&fit=crop&q=60'">
+            <span class="badge-type ${isSeries ? 'series' : ''}">${escapeHtml(movie.badgeLabel || (isSeries ? 'Serie' : 'Película'))}</span>
+            <img class="movie-poster-img" src="${escapeHtml(movie.poster)}" alt="${escapeHtml(movie.title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500&auto=format&fit=crop&q=60'">
             <div class="movie-hover-overlay">
               <button class="btn btn-netflix btn-sm">
                 <svg class="icon-svg" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -405,9 +478,9 @@ async function handleCineSearch(e) {
             </div>
           </div>
           <div class="movie-info">
-            <h4 class="movie-title">${escapeHtml(item.l)}</h4>
+            <h4 class="movie-title">${escapeHtml(movie.title)}</h4>
             <div class="movie-meta-row">
-              <span class="movie-year">${escapeHtml(String(year))}</span>
+              <span class="movie-year">${escapeHtml(String(movie.year))}</span>
               <span class="movie-rating-badge">${isSeries ? 'HD Serie' : 'Full HD'}</span>
             </div>
           </div>
@@ -416,7 +489,7 @@ async function handleCineSearch(e) {
     }).join('');
 
   } catch (err) {
-    console.error('Error buscando películas:', err);
+    console.error('Error buscando películas y anime:', err);
     resultsGrid.innerHTML = `
       <div class="empty-state-mini">
         <p>Hubo un problema de conexión al buscar. Por favor prueba de nuevo.</p>
@@ -428,7 +501,7 @@ async function handleCineSearch(e) {
 // ------------------------------------------
 // 3. REPRODUCTOR DE STREAMING MULTI-SERVIDOR
 // ------------------------------------------
-function initEpisodeDropdown(season, totalEpisodes = 24) {
+function initEpisodeDropdown(season, totalEpisodes = 50) {
   const epSelect = document.getElementById('episodeSelect');
   if (!epSelect) return;
   epSelect.innerHTML = '';
@@ -440,23 +513,32 @@ function initEpisodeDropdown(season, totalEpisodes = 24) {
   }
 }
 
+function prevEpisode() {
+  if (currentEpisode > 1) {
+    currentEpisode -= 1;
+    const epSelect = document.getElementById('episodeSelect');
+    if (epSelect) epSelect.value = String(currentEpisode);
+    reloadPlayer();
+  }
+}
+
 let currentLanguage = 'latino'; // 'latino' | 'castellano' | 'sub'
 
 function switchLanguage(lang) {
   currentLanguage = lang;
   const btns = document.querySelectorAll('.btn-lang');
-  btns.forEach(b => b.classList.remove('active'));
-  const targetBtn = Array.from(btns).find(b => b.getAttribute('onclick')?.includes(lang));
-  if (targetBtn) targetBtn.classList.add('active');
+  btns.forEach(b => {
+    b.classList.toggle('active', b.getAttribute('onclick')?.includes(lang));
+  });
 
   const hintText = document.querySelector('#audioHintBar span');
   if (hintText) {
     if (lang === 'latino') {
-      hintText.innerHTML = '<strong>Modo Español Latino:</strong> Servidores priorizados con doblaje Latino. Si la película inicia en inglés, pulsa el botón de <strong>Audio (🔈)</strong> dentro del reproductor para cambiar la pista a Español.';
+      hintText.innerHTML = '<strong>Modo Español Latino:</strong> Priorizado en Servidor 1 (Latino HD) y Servidor 2 (VidLink). Si la reproducción inicia en inglés o japonés, pulsa el botón de <strong>Audio / Pista (🔈)</strong> o <strong>Ajustes (⚙️)</strong> dentro del reproductor para cambiar la pista a <strong>Español Latino</strong>.';
     } else if (lang === 'castellano') {
-      hintText.innerHTML = '<strong>Modo Castellano:</strong> Servidores priorizados con doblaje de España. Si la pista está en otro idioma, usa el icono de <strong>Audio (🔈)</strong> dentro del reproductor.';
+      hintText.innerHTML = '<strong>Modo Castellano:</strong> En el reproductor, haz clic en el icono de <strong>Audio (🔈)</strong> o Ajustes y selecciona la pista <strong>Español (España)</strong>.';
     } else {
-      hintText.innerHTML = '<strong>Modo Subtitulado:</strong> Idioma original con subtítulos en Español disponibles en los controles del reproductor.';
+      hintText.innerHTML = '<strong>Modo Subtitulado:</strong> Idioma original con subtítulos en Español activables en el reproductor.';
     }
   }
 
@@ -479,26 +561,26 @@ function getEmbedUrl(imdbId, type, season = 1, episode = 1, server = 1) {
         ? `https://multiembed.mov/?video_id=${imdbId}&s=${season}&e=${episode}`
         : `https://multiembed.mov/?video_id=${imdbId}`;
     case 2:
-      // VidSrc ES: Con parámetro directo de idioma español
-      return isSeries
-        ? `https://vidsrc.xyz/embed/tv?imdb=${imdbId}&season=${season}&episode=${episode}${langParam}`
-        : `https://vidsrc.xyz/embed/movie?imdb=${imdbId}${langParam}`;
-    case 3:
-      // AutoEmbed: Servidor rápido multilenguaje
-      return isSeries
-        ? `https://player.autoembed.cc/embed/tv/${imdbId}/${season}/${episode}`
-        : `https://player.autoembed.cc/embed/movie/${imdbId}`;
-    case 4:
-      // VidLink: Reproductor moderno con selector de audio y subtítulos
+      // VidLink: Reproductor moderno con selector de audio y subtítulos en español
       return isSeries
         ? `https://vidlink.pro/tv/${imdbId}/${season}/${episode}?primaryColor=E50914`
         : `https://vidlink.pro/movie/${imdbId}?primaryColor=E50914`;
+    case 3:
+      // VidSrc CC: Servidor estable multilenguaje
+      return isSeries
+        ? `https://vidsrc.cc/v2/embed/tv/${imdbId}/${season}/${episode}`
+        : `https://vidsrc.cc/v2/embed/movie/${imdbId}`;
+    case 4:
+      // AutoEmbed: Servidor rápido multi-idioma
+      return isSeries
+        ? `https://player.autoembed.cc/embed/tv/${imdbId}/${season}/${episode}`
+        : `https://player.autoembed.cc/embed/movie/${imdbId}`;
     case 5:
     default:
-      // 2Embed: Servidor alternativo
+      // VidSrc XYZ con parámetro de idioma
       return isSeries
-        ? `https://www.2embed.cc/embedtv/${imdbId}&s=${season}&e=${episode}`
-        : `https://www.2embed.cc/embed/${imdbId}`;
+        ? `https://vidsrc.xyz/embed/tv?imdb=${imdbId}&season=${season}&episode=${episode}${langParam}`
+        : `https://vidsrc.xyz/embed/movie?imdb=${imdbId}${langParam}`;
   }
 }
 
@@ -727,11 +809,13 @@ function loadCineRecommendations() {
 
   grid.innerHTML = cineRecommendations.map(movie => {
     const isSeries = movie.type === 'series';
+    const isAnime = movie.genre?.toLowerCase().includes('anime') || movie.title?.toLowerCase().includes('mushoku') || movie.title?.toLowerCase().includes('re: zero');
+    const badgeText = isAnime ? 'Anime HD' : (isSeries ? 'Serie TV' : 'Película');
     const movieJson = JSON.stringify(movie).replace(/"/g, '&quot;');
     return `
       <div class="movie-card" onclick="selectMovie(${movieJson})">
         <div class="movie-poster-box">
-          <span class="badge-type ${isSeries ? 'series' : ''}">${isSeries ? 'Serie TV' : 'Película'}</span>
+          <span class="badge-type ${isSeries ? 'series' : ''}">${escapeHtml(badgeText)}</span>
           <img class="movie-poster-img" src="${escapeHtml(movie.poster)}" alt="${escapeHtml(movie.title)}" loading="lazy">
           <div class="movie-hover-overlay">
             <button class="btn btn-netflix btn-sm">
