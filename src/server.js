@@ -110,19 +110,119 @@ app.post('/api/auth/login', (req, res) => {
   });
 });
 
-// Stats generales
+// Limite estricto de 500 GB para no invadir el espacio de tus juegos
+const MAX_STORAGE_QUOTA_BYTES = 500 * 1024 * 1024 * 1024; // 500 GB
+
+// Catalogo de peliculas recomendadas estilo Netflix
+const RECOMMENDED_MOVIES = [
+  {
+    id: "rec_1",
+    title: "Spider-Man: Across the Spider-Verse",
+    year: "2023",
+    category: "Animación / Acción",
+    rating: "8.7",
+    plot: "Miles Morales es transportado a traves del Multiverso junto a Gwen Stacy para enfrentar una nueva amenaza interdimensional.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/8Vt6mWEReuy4Of61Lnj5Xj704m8.jpg",
+    streamUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+  },
+  {
+    id: "rec_2",
+    title: "Interstellar",
+    year: "2014",
+    category: "Ciencia Ficción",
+    rating: "8.6",
+    plot: "Un grupo de astronautas viaja a traves de un agujero de gusano en busca de un nuevo hogar habitable para la humanidad.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg",
+    streamUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4"
+  },
+  {
+    id: "rec_3",
+    title: "The Dark Knight",
+    year: "2008",
+    category: "Acción / Crimen",
+    rating: "9.0",
+    plot: "Batman enfrenta al Joker en Gotham en una batalla psicologica por el destino y la moral de la ciudad.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911r6m7haRef0WH.jpg",
+    streamUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4"
+  },
+  {
+    id: "rec_4",
+    title: "Oppenheimer",
+    year: "2023",
+    category: "Drama / Historia",
+    rating: "8.9",
+    plot: "La trayectoria de J. Robert Oppenheimer liderando el Proyecto Manhattan y las consecuencias de la creacion de la bomba atomica.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg",
+    streamUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
+  },
+  {
+    id: "rec_5",
+    title: "Attack on Titan: The Final Chapters",
+    year: "2023",
+    category: "Anime / Acción",
+    rating: "9.1",
+    plot: "Eren Jaeger desata el Retumbar de la Tierra y sus antiguos compañeros deben detenerlo en una confrontacion definitiva.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/hTP1DtLGFamjfu8WqjnuQdP1n4i.jpg",
+    streamUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+  },
+  {
+    id: "rec_6",
+    title: "Cyberpunk: Edgerunners",
+    year: "2022",
+    category: "Anime / Sci-Fi",
+    rating: "8.4",
+    plot: "David Martinez sobrevive en Night City convirtiendose en un mercenario ciberpunk con implantes de alta tecnologia.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/yox314uv2R71fU3Qc4U85B2rQ5n.jpg",
+    streamUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4"
+  },
+  {
+    id: "rec_7",
+    title: "Inception",
+    year: "2010",
+    category: "Ciencia Ficción / Acción",
+    rating: "8.8",
+    plot: "Dom Cobb se infiltra en el subconsciente de sus objetivos a traves de sueños compartidos para implantar una idea.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/edv5CZvWj09upOsy2Y6IwDhK8bt.jpg",
+    streamUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4"
+  },
+  {
+    id: "rec_8",
+    title: "Fight Club",
+    year: "1999",
+    category: "Drama / Suspenso",
+    rating: "8.8",
+    plot: "Un empleado alienado funda junto al carismatico Tyler Durden una organizacion secreta de combate nocturno.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg",
+    streamUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyBlazes.mp4"
+  }
+];
+
+// Stats generales con cupo de 500 GB
 app.get('/api/stats', (req, res) => {
   const fileCount = db.prepare('SELECT COUNT(*) as count, COALESCE(SUM(file_size), 0) as total_size FROM drive_files').get();
   const mediaCount = db.prepare('SELECT COUNT(*) as count FROM cine_media').get().count;
   const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
 
+  const usedBytes = fileCount.total_size;
+  const freeQuotaBytes = Math.max(0, MAX_STORAGE_QUOTA_BYTES - usedBytes);
+  const percentUsed = ((usedBytes / MAX_STORAGE_QUOTA_BYTES) * 100).toFixed(2);
+
   res.json({
     files: fileCount.count,
-    totalStorageUsedBytes: fileCount.total_size,
+    totalStorageUsedBytes: usedBytes,
+    maxStorageQuotaBytes: MAX_STORAGE_QUOTA_BYTES,
+    freeQuotaBytes: freeQuotaBytes,
+    freeQuotaGB: (freeQuotaBytes / (1024 * 1024 * 1024)).toFixed(2),
+    percentUsed: percentUsed,
     movies: mediaCount,
     users: userCount
   });
 });
+
+app.get('/api/cine/recommendations', (req, res) => {
+  res.json({ recommendations: RECOMMENDED_MOVIES });
+});
+
 
 // ----------------------------------------------------
 // 2. PAPUSDRIVE API
@@ -155,9 +255,19 @@ app.post('/api/drive/upload', uploadDrive.single('file'), (req, res) => {
     return res.status(400).json({ error: 'No se envió ningún archivo.' });
   }
 
+  // Comprobar limite de cupo de 500 GB
+  const currentTotal = db.prepare('SELECT COALESCE(SUM(file_size), 0) as total FROM drive_files').get().total;
+  if (currentTotal + req.file.size > MAX_STORAGE_QUOTA_BYTES) {
+    try { fs.unlinkSync(req.file.path); } catch (e) {}
+    return res.status(400).json({
+      error: 'Cupo máximo de 500 GB alcanzado. El resto del disco D: se mantiene reservado para tus juegos.'
+    });
+  }
+
   const { user_id, is_public } = req.body;
   const userId = parseInt(user_id) || 1;
   const publicFlag = (is_public === '1' || is_public === true) ? 1 : 0;
+
 
   const result = db.prepare(`
     INSERT INTO drive_files (user_id, filename, original_name, file_path, file_size, mime_type, is_public)
@@ -341,6 +451,8 @@ wss.on('connection', (ws) => {
           ws.send(JSON.stringify({
             type: 'ROOM_SYNC',
             mediaId: room.mediaId,
+            streamUrl: room.streamUrl || null,
+            title: room.title || null,
             currentTime: room.currentTime,
             isPlaying: room.isPlaying
           }));
@@ -360,17 +472,26 @@ wss.on('connection', (ws) => {
           room.mediaId = msg.mediaId;
           room.currentTime = 0;
           room.isPlaying = true;
+          room.streamUrl = msg.streamUrl || null;
+          room.title = msg.title || 'Película';
 
-          db.prepare('UPDATE watch_rooms SET media_id = ?, current_time = 0, is_playing = 1 WHERE id = ?')
-            .run(msg.mediaId, currentRoomId);
+          if (typeof msg.mediaId === 'number') {
+            try {
+              db.prepare('UPDATE watch_rooms SET media_id = ?, current_time = 0, is_playing = 1 WHERE id = ?')
+                .run(msg.mediaId, currentRoomId);
+            } catch (e) {}
+          }
 
           broadcastToRoom(currentRoomId, {
             type: 'MEDIA_LOADED',
             mediaId: msg.mediaId,
+            streamUrl: msg.streamUrl || null,
+            title: msg.title || 'Película',
             by: username
           });
           break;
         }
+
 
         case 'PLAY': {
           if (!currentRoomId) return;

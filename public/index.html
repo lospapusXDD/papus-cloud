@@ -21,9 +21,10 @@
       </svg>
       <div class="brand-text">
         <h1>PapusCloud</h1>
-        <span class="brand-badge">HDD 1.5 TB</span>
+        <span class="brand-badge">Cupo: 500 GB (Juegos en D: libres)</span>
       </div>
     </div>
+
 
     <!-- TABS PRINCIPALES -->
     <nav class="nav-tabs">
@@ -68,21 +69,22 @@
       <!-- HEADER DRIVE & STATS -->
       <div class="section-hero">
         <div class="hero-info">
-          <h2>Tu Nube Privada sin Límites</h2>
-          <p>Almacena instaladores, juegos portables, clips y archivos pesados en el disco D:.</p>
+          <h2>Tu Nube Privada (Cupo de 500 GB)</h2>
+          <p>Almacena archivos en D: con límite de 500 GB para dejar intacto el espacio de tus juegos.</p>
         </div>
         <div class="storage-widget">
           <div class="storage-meta">
             <span>
               <svg class="icon-svg" style="width: 1rem; height: 1rem;" viewBox="0 0 24 24"><line x1="22" y1="12" x2="2" y2="12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" y1="16" x2="6.01" y2="16"/><line x1="10" y1="16" x2="10.01" y2="16"/></svg>
-              Espacio disponible
+              Cupo asignado (500 GB)
             </span>
-            <strong id="storageStat">1.54 TB libres</strong>
+            <strong id="storageStat">500.00 GB libres</strong>
           </div>
           <div class="progress-track">
-            <div class="progress-fill" id="storageProgressBar" style="width: 15%;"></div>
+            <div class="progress-fill" id="storageProgressBar" style="width: 0%;"></div>
           </div>
         </div>
+
       </div>
 
       <!-- ZONA DE CARGA (DRAG & DROP) -->
@@ -187,8 +189,8 @@
             </div>
           </div>
 
-          <!-- CARTELERA DE PELÍCULAS / VIDEOS -->
-          <div class="catalog-section">
+          <!-- RECOMENDACIONES POPULARES ESTILO NETFLIX -->
+          <div class="catalog-section" style="margin-bottom: 2rem;">
             <div class="catalog-header">
               <div style="display: flex; align-items: center; gap: 10px;">
                 <svg class="netflix-icon-svg" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -196,16 +198,30 @@
                   <path d="M16.5 0H24V36H16.5V0Z" fill="#B81D24"/>
                   <path d="M0 0H7.5L24 36H16.5L0 0Z" fill="#E50914"/>
                 </svg>
-                <h3>Cartelera CinePapus</h3>
+                <h3>Recomendaciones Populares</h3>
+              </div>
+              <span class="catalog-count" id="recCount">8 títulos</span>
+            </div>
+            <div class="movies-grid" id="recommendedGrid">
+              <!-- Cards dinámicas de recomendaciones de Netflix -->
+            </div>
+          </div>
+
+          <!-- CARTELERA DE VIDEOS LOCALES EN DISCO D: -->
+          <div class="catalog-section">
+            <div class="catalog-header">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <svg class="icon-svg" viewBox="0 0 24 24"><line x1="22" y1="12" x2="2" y2="12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" y1="16" x2="6.01" y2="16"/><line x1="10" y1="16" x2="10.01" y2="16"/></svg>
+                <h3>Tus Videos Locales (Disco D:)</h3>
               </div>
               <span class="catalog-count" id="catalogCount">0 títulos</span>
             </div>
-
             <div class="movies-grid" id="moviesGrid">
-              <!-- Cards dinámicas de películas -->
+              <!-- Cards dinámicas de películas locales -->
             </div>
           </div>
         </div>
+
 
         <!-- WATCH PARTY PANEL LATERAL (CHAT & PAPUS EN VIVO) -->
         <aside class="watch-party-sidebar">

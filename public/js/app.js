@@ -5,6 +5,7 @@
 let currentUser = null;
 let currentTab = 'drive';
 let allDriveFiles = [];
+let cineRecommendations = [];
 let activeFilter = 'all';
 let currentMediaId = null;
 let isRemoteSync = false;
@@ -13,11 +14,14 @@ let ws = null;
 // Inicialización al cargar la página
 document.addEventListener('DOMContentLoaded', () => {
   initAuth();
+  loadStats();
   loadDriveFiles();
+  loadCineRecommendations();
   loadCineCatalog();
   setupDragAndDrop();
   setupWebSocket();
 });
+
 
 // ------------------------------------------
 // 1. AUTENTICACIÓN
@@ -138,6 +142,27 @@ function switchTab(tab) {
     driveBtn.classList.remove('active');
     cineSec.classList.add('active');
     driveSec.classList.remove('active');
+  }
+}
+
+// ------------------------------------------
+// 2.5 STATS & CUPO DE DISCO (500 GB)
+// ------------------------------------------
+async function loadStats() {
+  try {
+    const res = await fetch('/api/stats');
+    if (!res.ok) return;
+    const data = await res.json();
+    const statText = document.getElementById('storageStat');
+    const progressBar = document.getElementById('storageProgressBar');
+    if (statText) {
+      statText.textContent = `${data.freeQuotaGB} GB libres de 500 GB (${data.percentUsed}% ocupado)`;
+    }
+    if (progressBar) {
+      progressBar.style.width = `${Math.min(100, Math.max(0, data.percentUsed))}%`;
+    }
+  } catch (err) {
+    console.error('Error al cargar stats:', err);
   }
 }
 
@@ -344,6 +369,7 @@ function uploadFile(file) {
     setTimeout(() => progressBox.classList.add('hidden'), 1200);
     if (xhr.status === 200) {
       loadDriveFiles();
+      loadStats();
     } else {
       alert('Error al guardar el archivo en el disco D:.');
     }
@@ -363,6 +389,7 @@ async function deleteFile(id) {
     const res = await fetch(`/api/drive/${id}`, { method: 'DELETE' });
     if (res.ok) {
       loadDriveFiles();
+      loadStats();
     }
   } catch (err) {
     alert('Error al eliminar archivo.');
@@ -440,7 +467,7 @@ function handleWsEvent(msg) {
   switch (msg.type) {
     case 'ROOM_SYNC':
       if (msg.mediaId && msg.mediaId !== currentMediaId) {
-        loadMediaToPlayer(msg.mediaId, false);
+        loadMediaToPlayer(msg.mediaId, msg.streamUrl, msg.title, false);
       }
       if (msg.currentTime) {
         player.currentTime = msg.currentTime;
@@ -451,8 +478,8 @@ function handleWsEvent(msg) {
       break;
 
     case 'MEDIA_LOADED':
-      loadMediaToPlayer(msg.mediaId, false);
-      appendChatMessage('system', `[CINE] ${msg.by} cargó una película a la sala.`);
+      loadMediaToPlayer(msg.mediaId, msg.streamUrl, msg.title, false);
+      appendChatMessage('system', `[CINE] ${msg.by} cargó "${escapeHtml(msg.title || 'una película')}" a la sala.`);
       break;
 
     case 'PLAY':
@@ -521,15 +548,17 @@ player.addEventListener('seeked', () => {
   }
 });
 
+let localCatalog = [];
+
 async function loadCineCatalog() {
   const grid = document.getElementById('moviesGrid');
   try {
     const res = await fetch('/api/cine/catalog');
     const data = await res.json();
-    const catalog = data.catalog || [];
-    document.getElementById('catalogCount').textContent = `${catalog.length} títulos`;
+    localCatalog = data.catalog || [];
+    document.getElementById('catalogCount').textContent = `${localCatalog.length} títulos`;
 
-    if (catalog.length === 0) {
+    if (localCatalog.length === 0) {
       grid.innerHTML = `
         <div style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--text-muted);">
           <p>No hay videos en la cartelera todavía. Puedes subir uno o escanear la carpeta <code>D:\\PapusCloud\\cine</code>.</p>
@@ -538,7 +567,7 @@ async function loadCineCatalog() {
       return;
     }
 
-    grid.innerHTML = catalog.map(m => `
+    grid.innerHTML = localCatalog.map(m => `
       <div class="movie-card" onclick="selectMovie(${m.id}, '${escapeHtml(m.title)}')">
         <div class="movie-thumb-netflix">
           <svg class="netflix-icon-svg" style="width: 24px; height: 38px;" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -559,22 +588,95 @@ async function loadCineCatalog() {
   }
 }
 
-function selectMovie(mediaId, title) {
-  loadMediaToPlayer(mediaId, true);
+// Cargar catálogo de recomendaciones populares estilo Netflix
+async function loadCineRecommendations() {
+  const grid = document.getElementById('recommendedGrid');
+  const countEl = document.getElementById('recCount');
+  if (!grid) return;
+
+  try {
+    const res = await fetch('/api/cine/recommendations');
+    const data = await res.json();
+    cineRecommendations = data.recommendations || [];
+    if (countEl) countEl.textContent = `${cineRecommendations.length} títulos`;
+
+    if (cineRecommendations.length === 0) {
+      grid.innerHTML = '<p style="color: var(--text-muted); padding: 1rem;">No hay recomendaciones disponibles por ahora.</p>';
+      return;
+    }
+
+    grid.innerHTML = cineRecommendations.map(m => `
+      <div class="movie-card" onclick="selectRecommendedMovie('${m.id}')" title="Ver ${escapeHtml(m.title)}">
+        <div style="position: relative; overflow: hidden; height: 260px; background: #000;">
+          <img src="${m.posterUrl}" 
+               alt="${escapeHtml(m.title)}" 
+               class="movie-poster-img"
+               loading="lazy"
+               onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'movie-thumb-netflix\\' style=\\'height: 260px;\\'><svg class=\\'netflix-icon-svg\\' style=\\'width: 36px; height: 54px;\\' viewBox=\\'0 0 24 36\\'><path d=\\'M0 0H7.5V36H0V0Z\\' fill=\\'#B81D24\\'/><path d=\\'M16.5 0H24V36H16.5V0Z\\' fill=\\'#B81D24\\'/><path d=\\'M0 0H7.5L24 36H16.5L0 0Z\\' fill=\\'#E50914\\'/></svg></div>';"
+          >
+          <span class="movie-rating" style="position: absolute; top: 10px; right: 10px; z-index: 2; box-shadow: 0 2px 8px rgba(0,0,0,0.7);">
+            ★ ${escapeHtml(m.rating || '8.5')}
+          </span>
+        </div>
+        <div class="movie-info">
+          <h4 class="movie-title" title="${escapeHtml(m.title)}">${escapeHtml(m.title)}</h4>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+            <span class="movie-badge" style="color: #E50914; font-weight: 700;">${escapeHtml(m.category || 'Netflix Populares')}</span>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">${escapeHtml(m.year || '')}</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    grid.innerHTML = '<p style="color: var(--text-muted);">Error al cargar recomendaciones de Netflix.</p>';
+  }
 }
 
-function loadMediaToPlayer(mediaId, broadcast = true) {
+function selectRecommendedMovie(id) {
+  const movie = cineRecommendations.find(m => m.id === id);
+  if (!movie) return;
+  document.getElementById('nowPlayingDesc').textContent = `${movie.year} • ${movie.category} • ★ ${movie.rating} — ${movie.plot}`;
+  loadMediaToPlayer(movie.id, movie.streamUrl, movie.title, true);
+}
+
+function selectMovie(mediaId, title) {
+  const found = localCatalog.find(m => m.id === mediaId);
+  if (found) {
+    document.getElementById('nowPlayingDesc').textContent = `${found.category || 'Películas'} • Local en Disco D:`;
+  }
+  loadMediaToPlayer(mediaId, null, title, true);
+}
+
+function loadMediaToPlayer(mediaId, streamUrl = null, title = null, broadcast = true) {
   currentMediaId = mediaId;
-  player.src = `/api/cine/stream/${mediaId}`;
-  document.getElementById('nowPlayingTitle').textContent = `Reproduciendo ahora`;
+
+  if (streamUrl) {
+    player.src = streamUrl;
+  } else if (typeof mediaId === 'string' && mediaId.startsWith('rec_')) {
+    const movie = cineRecommendations.find(m => m.id === mediaId);
+    if (movie) {
+      player.src = movie.streamUrl;
+      title = title || movie.title;
+      document.getElementById('nowPlayingDesc').textContent = `${movie.year} • ${movie.category} • ★ ${movie.rating} — ${movie.plot}`;
+    } else {
+      player.src = `/api/cine/stream/${mediaId}`;
+    }
+  } else {
+    player.src = `/api/cine/stream/${mediaId}`;
+  }
+
+  document.getElementById('nowPlayingTitle').textContent = title ? `Reproduciendo: ${title}` : 'Reproduciendo ahora';
 
   if (broadcast && ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({
       type: 'LOAD_MEDIA',
-      mediaId
+      mediaId,
+      streamUrl: streamUrl || (player.src.startsWith('http') ? player.src : null),
+      title: title || 'Película'
     }));
   }
 
+  player.scrollIntoView({ behavior: 'smooth', block: 'center' });
   player.play().catch(() => {});
 }
 
