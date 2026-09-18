@@ -105,15 +105,32 @@
 
           <!-- REPRODUCTOR CINEMATOGRÁFICO -->
           <div class="video-card" id="playerContainerCard">
-            <!-- SELECTOR DE SERVIDORES -->
+            <!-- SELECTOR DE IDIOMA Y SERVIDORES -->
             <div class="server-selector-bar">
-              <span class="server-label">Servidor:</span>
-              <div class="server-buttons" id="serverButtons">
-                <button class="btn-server active" onclick="switchServer(1)">Servidor 1 (MultiEmbed)</button>
-                <button class="btn-server" onclick="switchServer(2)">Servidor 2 (VidSrc CC)</button>
-                <button class="btn-server" onclick="switchServer(3)">Servidor 3 (AutoEmbed)</button>
-                <button class="btn-server" onclick="switchServer(4)">Servidor 4 (VidSrc XYZ)</button>
+              <div class="lang-selector-group">
+                <span class="server-label">Idioma:</span>
+                <div class="lang-buttons" id="langButtons">
+                  <button class="btn-lang active" onclick="switchLanguage('latino')">🇲🇽 Español Latino</button>
+                  <button class="btn-lang" onclick="switchLanguage('castellano')">🇪🇸 Castellano</button>
+                  <button class="btn-lang" onclick="switchLanguage('sub')">💬 Subtitulado</button>
+                </div>
               </div>
+              <div class="server-buttons-group">
+                <span class="server-label">Servidor:</span>
+                <div class="server-buttons" id="serverButtons">
+                  <button class="btn-server active" onclick="switchServer(1)">Servidor 1 (Latino HD)</button>
+                  <button class="btn-server" onclick="switchServer(2)">Servidor 2 (VidSrc ES)</button>
+                  <button class="btn-server" onclick="switchServer(3)">Servidor 3 (AutoEmbed)</button>
+                  <button class="btn-server" onclick="switchServer(4)">Servidor 4 (VidLink)</button>
+                  <button class="btn-server" onclick="switchServer(5)">Servidor 5 (2Embed)</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- AVISO DE AUDIO EN ESPAÑOL -->
+            <div class="audio-hint-bar" id="audioHintBar">
+              <svg class="icon-svg" style="width:16px; height:16px; color:#38bdf8;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <span><strong>Audio en Español:</strong> La mayoría de títulos incluyen doblaje al Español Latino. Si una película inicia en inglés, haz clic en el ícono de <strong>Audio/Pista (🔈)</strong> o <strong>Ajustes (⚙️)</strong> en la barra inferior del reproductor para seleccionar Español.</span>
             </div>
 
             <!-- CONTROLES DE SERIE (TEMPORADA Y CAPÍTULO) -->
